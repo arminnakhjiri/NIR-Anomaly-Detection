@@ -1,2 +1,138 @@
-# NIR-Anomaly-Detection
-Google Earth Engine script to compute standardized anomalies (Z-scores) of MODIS NIR reflectance (MOD09GQ) and detect low/high anomalies over a custom AOI
+# MODIS NIR Reflectance Standardized Anomaly Detection (Z-Score) 2005–2025
+
+Google Earth Engine **JavaScript** script that calculates **standardized anomalies** (Z-scores) of near-infrared surface reflectance from the **MODIS MOD09GQ** product (250 m resolution) and identifies low/high anomalous periods.
+
+This method helps detect unusual vegetation/greenness behavior, drought signals, land degradation, or greening events relative to the long-term climatology.
+
+## 📌 Overview
+- **Dataset**: MODIS/061/MOD09GQ (daily surface reflectance, NIR band: `sur_refl_b02`)
+- **Period**: 2005-01-01 to 2025-12-31
+- **Method**: Z-score standardization → **P = (NIR − μ) / σ**
+- **Anomaly detection**: Low (P < T₁ = -0.5), High (P > T₂ = 0.1)
+- **Output**: Visual layers + export of mean (μ) and standard deviation (σ) to Google Drive
+- **Purpose**: Suitable for vegetation monitoring, drought analysis, land surface change detection
+
+## 🚀 How to Use
+1. Open [Google Earth Engine Code Editor](https://code.earthengine.google.com)
+2. Create a new script
+3. Paste the full code from `script.js`
+4. Draw or import your **Area of Interest** and asign to `AOI`
+5. (Optional) Modify:
+   - `startDate` / `endDate`
+   - Thresholds `T1` and `T2`
+   - Export folder name
+6. Run the script
+7. View layers on the map
+8. Check console for size, example image, and min/max anomaly values
+9. Go to **Tasks** tab → Run the export tasks
+
+## 📂 Code Structure
+```javascript
+// Settings
+var AOI = table;
+var dataset = 'MODIS/061/MOD09GQ';
+var nirBand = 'sur_refl_b02';
+var startDate = '2005-01-01';
+var endDate = '2025-12-31';
+var T1 = -0.5;
+var T2 = 0.1;
+
+// Load collection and limit to AOI
+var col = ee.ImageCollection(dataset)
+  .filterDate(startDate, endDate)
+  .filterBounds(AOI)
+  .select(nirBand);
+
+//print(col);
+
+// Mean (μ) and Std Dev (σ)
+var meanImage = col.mean().rename('mu').clip(AOI);
+var stdImage = col.reduce(ee.Reducer.stdDev()).rename('sigma').clip(AOI);
+
+// Calculate P = (nir − μ) / σ
+var pCollection = col.map(function(img) {
+  var nir = img.select(nirBand);
+  var P = nir.subtract(meanImage).divide(stdImage).rename('P').clip(AOI);
+  return P.copyProperties(img, img.propertyNames());
+});
+
+print(pCollection);
+
+// Call one image from the P collection
+var onePImage = ee.Image(pCollection.first());
+
+// Filter by Tolerance
+var lowAnomaly  = onePImage.updateMask(onePImage.lt(T1));  // P < -1
+var highAnomaly = onePImage.updateMask(onePImage.gt(T2));  // P > 1
+
+
+print(
+  lowAnomaly.reduceRegion({
+    reducer: ee.Reducer.minMax(),
+    geometry: AOI,
+    scale: 500,
+    maxPixels: 1e13
+  }), 'lowAnomaly'
+);
+
+print(
+  highAnomaly.reduceRegion({
+    reducer: ee.Reducer.minMax(),
+    geometry: AOI,
+    scale: 500,
+    maxPixels: 1e13
+  }), 'highAnomaly'
+);
+
+// Vis param
+var viz = {
+  palette: [
+    '00008B',  // very cold (dark blue)
+    '0000FF',  // blue
+    '00FFFF',  // cyan
+    'FFFF00',  // warm (yellow)
+    'FF7F00',  // orange
+    'FF0000'   // hot (red)
+  ]
+};
+
+// Display
+Map.centerObject(AOI);
+Map.addLayer(AOI, {}, 'Area of Interest');
+Map.addLayer(meanImage, viz, 'Mean μ');
+Map.addLayer(stdImage, viz, 'StdDev σ');
+Map.addLayer(onePImage, viz, 'Example P');
+Map.addLayer(lowAnomaly, viz, 'Low Anomaly');
+Map.addLayer(highAnomaly, viz, 'High Anomaly');
+
+// Export
+Export.image.toDrive({
+  image: meanImage,
+  description: 'MODIS_NIR_Mean_2005_2025',
+  folder: 'Exports',
+  fileNamePrefix: 'NIR_mean_mu',
+  region: AOI,
+  scale: 250,
+  maxPixels: 1e13,
+  crs: 'EPSG:4326'
+});
+
+Export.image.toDrive({
+  image: stdImage,
+  description: 'MODIS_NIR_StdDev_2005_2025',
+  folder: 'Exports',
+  fileNamePrefix: 'NIR_std_sigma',
+  region: AOI,
+  scale: 250,
+  maxPixels: 1e13,
+  crs: 'EPSG:4326'
+});
+```
+
+---
+## Author
+**Armin Nakhjiri**
+Remote Sensing Scientist & Educator
+✉️ Nakhjiri.Armin@gmail.com
+---
+*Empowering the next generation of geospatial analysts, one script at a time.*
