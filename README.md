@@ -130,9 +130,12 @@ Export.image.toDrive({
 ```
 
 ---
+
 ## Author
-**Armin Nakhjiri**
-Remote Sensing Scientist & Educator
-✉️ Nakhjiri.Armin@gmail.com
+**Armin Nakhjiri**  
+Remote Sensing Scientist
+✉️ Nakhjiri.Armin@gmail.com  
+
 ---
+
 *Empowering the next generation of geospatial analysts, one script at a time.*
