@@ -109,7 +109,7 @@ Map.addLayer(exampleLow,
 Map.addLayer(exampleHigh,
   {min:0, max:1},
   'Example High Anomaly');
-Map.addLayer(table, {}, 'City boundary');
+Map.addLayer(table, {color: 'red'}, 'City boundary');
 
 // Exports
 Export.image.toDrive({
